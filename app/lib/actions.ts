@@ -27,15 +27,20 @@ export async function createInvoice(formData: FormData) {
   const amountInCents = amount * 100;
   const date = new Date().toISOString().split('T')[0];
 
-  await sql(`
+  try {
+    await sql(`
     INSERT INTO invoices (customer_id, amount, status, date)
     VALUES ('${customerId}', '${amountInCents}', '${status}', '${date}')
 `);
+  } catch (err) {
+    return { message: 'Database Error: Failed to Create Invoice.' };
+  }
 
   // clear next.js cache for this url and will fetch new data when redirecting there
   revalidatePath('/dashboard/invoices');
 
   // go to this page
+  // redirect internally throws an error so it should be called outside of a try block
   redirect('/dashboard/invoices');
 }
 
@@ -51,22 +56,31 @@ export async function editInvoice(invoiceId: string, formData: FormData) {
 
   const amountInCents = amount * 100;
 
-  await sql(`
+  try {
+    await sql(`
     UPDATE invoices
     SET amount = '${amountInCents}', status = '${status}', customer_id = '${customerId}'
     WHERE id = '${invoiceId}'
   `);
+  } catch (err) {
+    return { message: 'Database Error: Failed to Update Invoice.' };
+  }
 
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
 }
 
 export async function deleteInvoice(invoiceId: string) {
-  await sql(`
+  try {
+    await sql(`
     DELETE FROM invoices WHERE id = '${invoiceId}'  
   `);
+    // you don't need to redirect if it is the current path
+    // this will trigger a new request and re-render the table
+    revalidatePath('/dashboard/invoices');
 
-  // you don't need to redirect if it is the current path
-  // this will trigger a new request and re-render the table
-  revalidatePath('/dashboard/invoices');
+    return { message: 'Deleted Invoice.' };
+  } catch (err) {
+    return { message: 'Database Error: Failed to Delete Invoice.' };
+  }
 }
